@@ -11,8 +11,9 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="DAL" />
         <module name="core" />
+        <module name="DAL" />
+        <module name="job-scheduler-core" />
       </profile>
     </annotationProcessing>
   </component>
