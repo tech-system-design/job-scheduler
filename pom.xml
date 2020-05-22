@@ -6,7 +6,29 @@
 
     <groupId>groupId</groupId>
     <artifactId>job-scheduler</artifactId>
+    <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
+    <modules>
+        <module>JobRegistration</module>
+        <module>service</module>
+    </modules>
+    <properties>
+        <dropwizard.version>2.0.0</dropwizard.version>
+    </properties>
+    <dependencies>
+        <!-- https://mvnrepository.com/artifact/io.dropwizard/dropwizard-core -->
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-core</artifactId>
+            <version>${dropwizard.version}</version>
+        </dependency>
 
-    
+        <!-- https://mvnrepository.com/artifact/io.dropwizard/dropwizard-dependencies -->
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-dependencies</artifactId>
+            <version>${dropwizard.version}</version>
+            <type>pom</type>
+        </dependency>
+    </dependencies>
 </project>
