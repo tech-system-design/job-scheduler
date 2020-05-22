@@ -1,0 +1,4 @@
+#Fri May 22 01:00:18 BST 2020
+configuration*?=7358A9C9E10EFCFBD740AEBFFCDAEDB34F587FC2
+module-resource*?\:checkstyle-xpath-suppressions.xml=C63BCCF9583116DC4877DE9F5544208F513765B2
+module-resource*?\:checkstyle-suppressions.xml=94C7CADD54B2D6F7BCDD79DE82DA510E32C39EE
