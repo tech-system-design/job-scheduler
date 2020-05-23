@@ -1,17 +1,14 @@
 package job.scheduler.core.controller;
 
 import job.scheduler.core.config.ServerConfig;
-import job.scheduler.core.zk.ZookeeperClient;
+import job.scheduler.core.utils.Pair;
+import job.scheduler.core.zk.*;
+import job.scheduler.core.zk.exception.ZKClientErrorCode;
+import job.scheduler.core.zk.exception.ZKClientException;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
-import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.WatchedEvent;
-
-import java.util.Collections;
-import java.util.List;
 
 /***
  * Main controller class responsible to assign work to other servers.
@@ -20,13 +17,15 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class JobSchedulerController {
-  private static final String CONTROLLER_PARENT = "/controller";
-  private static final String SERVER_PARENT = "/servers";
-  private String electedNodeId;
-  private boolean isLeader = false;
-  private ControllerMonitor controllerMonitor;
+  public static final int INITIAL_CONTROLLER_EPOCH = 0;
+  public static final int INITIAL_CONTROLLER_EPOCH_ZK_VERSION = 0;
+  private static final int INVALID_CONTROLLER_ID = -1;
+  private int activeControllerId = INVALID_CONTROLLER_ID;
 
-  @NonNull private ZookeeperClient zkClient;
+  private ControllerContext controllerContext;
+  private ControllerChangeHandler controllerChangeHandler;
+
+  @NonNull private SchedulerZooKeeperClient zkClient;
   @NonNull private ServerConfig config;
 
   /**
@@ -34,8 +33,10 @@ public class JobSchedulerController {
    * It register itself with zookeeper and start controller election.
    */
   public void startup() throws KeeperException, InterruptedException {
-    registerServerWithZookeeper();
-    electAndCache();
+    controllerChangeHandler = new ControllerChangeHandler();
+    controllerContext = new ControllerContext();
+    zkClient.registerStateChangeHandler(new ControllerStateChangeHandler());
+    processStartup();
     startTaskDistribution();
   }
 
@@ -46,12 +47,81 @@ public class JobSchedulerController {
 
   }
 
-  private boolean isLeader() {
-    return isLeader;
+  private void processStartup() throws KeeperException, InterruptedException {
+    log.info("Starting controller.");
+    zkClient.registerZkNodeHandler(controllerChangeHandler);
+    elect();
+  }
+
+  private void elect() throws KeeperException, InterruptedException {
+    // get current controller id from zookeeper
+    activeControllerId = zkClient.getActiveControllerIdOrElse(INVALID_CONTROLLER_ID);
+
+    if(activeControllerId != INVALID_CONTROLLER_ID) {
+      log.info("Controller has been selected. Current server {} is controller. Stopping election process", activeControllerId);
+      return;
+    }
+
+    try {
+      Pair<Integer, Integer> epoch =  zkClient.registerControllerAndIncrementControllerEpoch(config.getServerId());
+      activeControllerId = config.getServerId();
+      controllerContext.epoch = epoch.first;
+      controllerContext.epochZkVersion = epoch.second;
+      log.info(activeControllerId + " has been successfully elected as controller.");
+      log.info("Current epoch {} and version {} are ", epoch.first, epoch.second);
+    } catch (ZKClientException ex) {
+      if(ex.code == ZKClientErrorCode.CONTROLLER_MOVED) {
+        // controller is moved to another server.
+        maybeResign();
+      } else {
+        log.error("Error while electing controller. Retriggering controller election.");
+        triggerControllerMove();
+      }
+    } catch (Throwable ex) {
+      log.error("Error while electing controller. Retriggering controller election.");
+      triggerControllerMove();
+    }
+  }
+
+  private void maybeResign() throws KeeperException, InterruptedException {
+    boolean wasActiveBeforeChange = isActive();
+    zkClient.registerZNodeChangeHandlerAndCheckExistence(controllerChangeHandler);
+    activeControllerId = zkClient.getActiveControllerIdOrElse(INVALID_CONTROLLER_ID);
+    if (wasActiveBeforeChange && !isActive()) {
+      onControllerResignation();
+    }
+  }
+
+  private void triggerControllerMove() throws KeeperException, InterruptedException {
+    activeControllerId = zkClient.getActiveControllerIdOrElse(INVALID_CONTROLLER_ID);
+    if (!isActive()) {
+     log.warn("Controller has already moved when trying to trigger controller movement");
+      return;
+    }
+    try {
+      int expectedControllerEpochZkVersion = controllerContext.epochZkVersion;
+      activeControllerId = -1;
+      onControllerResignation();
+      zkClient.delete(ZkData.ControllerZNode.path(), expectedControllerEpochZkVersion);
+    } catch (ZKClientException ex){
+      if (ex.code == ZKClientErrorCode.CONTROLLER_MOVED) {
+        log.warn("Controller has already moved when trying to trigger controller movement");
+      }
+    }
+  }
+
+  private void onControllerResignation() {
+    log.debug("Resigning");
+    // cleanup
+    log.info("Resigned");
+  }
+
+  private boolean isActive() {
+    return activeControllerId == config.getServerId();
   }
 
   private void startTaskDistribution() {
-    if (!isLeader()) {
+    if (!isActive()) {
       // if current sever is not leader. quit
       return;
     }
@@ -59,66 +129,86 @@ public class JobSchedulerController {
 
   }
 
-  private void registerServerWithZookeeper() throws KeeperException, InterruptedException {
-    electedNodeId = zkClient.tryCreateNode(CONTROLLER_PARENT + "/guid-", null, CreateMode.EPHEMERAL_SEQUENTIAL);
-    zkClient.tryCreateNode(SERVER_PARENT + "/" + config.getServerId(), null, CreateMode.EPHEMERAL);
+  private void registerServerAndReElect() {
+    //_brokerEpoch = zkClient.registerBroker(brokerInfo)
+    processReelect();
   }
 
-  // TODO: make controller event management thread safe
-  private void electAndCache() throws KeeperException, InterruptedException {
-    isLeader = electedNodeId.equals(getLeaderNodePath());
-    zkClient.unRegisterZHandler(controllerMonitor);
-    String potentialLeader = getPotentialLeaderPathToWatch();
-    controllerMonitor = new ControllerMonitor(potentialLeader);
-    zkClient.registerZHandler(controllerMonitor);
+  private void handleExpire() {
+    activeControllerId = -1;
+    onControllerResignation();
   }
 
-  private String getLeaderNodePath() throws KeeperException, InterruptedException {
-    List<String> guids = zkClient.getChildren(CONTROLLER_PARENT);
-    if (!guids.isEmpty()) {
-      String leaderGUID = Collections.min(guids);
-      log.info("leader is {}.", leaderGUID);
-      return CONTROLLER_PARENT + "/" + leaderGUID;
-    } else {
-      // should not happen
-      log.error("No server is registered.");
-      return null;
+  private void processControllerChange() {
+    try {
+      maybeResign();
+    } catch (KeeperException e) {
+      e.printStackTrace();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
     }
   }
 
-  private String getPotentialLeaderPathToWatch() throws KeeperException, InterruptedException {
-    if (isLeader()) {
-      log.info("Current node {} is leader ", electedNodeId);
-      return electedNodeId;
+  private void processReelect(){
+    try {
+      maybeResign();
+      elect();
+    } catch (KeeperException e) {
+      e.printStackTrace();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
     }
-    List<String> guids = zkClient.getChildren(CONTROLLER_PARENT);
-    Collections.sort(guids);
-    int index = Collections.binarySearch(guids, electedNodeId);
-    if (index > 0) {
-      return guids.get(index - 1);
-    } else {
-      return null;
-    }
+
   }
 
-  private class ControllerMonitor implements ZookeeperClient.ZHandler {
-    private String potentialLeader;
+  private class ControllerChangeHandler implements IZkNodeChangeHandler {
 
-    ControllerMonitor(String potentialLeader) {
-      this.potentialLeader = potentialLeader;
+    @Override
+    public String path() {
+      return ZkData.ControllerZNode.path();
     }
 
     @Override
-    public void process(WatchedEvent watchedEvent) throws KeeperException, InterruptedException {
-      String path = watchedEvent.getPath();
-      if (StringUtils.isNotEmpty(path) && path.equals(potentialLeader)) {
-        electAndCache();
-      }
+    public void handleCreation() {
+      processControllerChange();
     }
 
     @Override
-    public void onZKSessionClosed() {
-      // reset connection
+    public void handleDeletion() {
+      processReelect();
+    }
+
+    @Override
+    public void handleDataChange() {
+      processControllerChange();
+    }
+
+    @Override
+    public void handleChildChange() {
+
+    }
+  }
+
+  private class ControllerStateChangeHandler implements IZkStateChangeHandler {
+    private static final String NAME = "controller-state-handler";
+    @Override
+    public String name() {
+      return NAME;
+    }
+
+    @Override
+    public void beforeInitializingSession() {
+      handleExpire();
+    }
+
+    @Override
+    public void afterInitializingSession() {
+      registerServerAndReElect();
+    }
+
+    @Override
+    public void onAuthFailure() {
+
     }
   }
 

@@ -2,7 +2,8 @@ package job.scheduler.core.server;
 
 import job.scheduler.core.config.ServerConfig;
 import job.scheduler.core.controller.JobSchedulerController;
-import job.scheduler.core.zk.ZookeeperClient;
+import job.scheduler.core.zk.SchedulerZooKeeperClient;
+import job.scheduler.core.zk.ZooKeeperClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -22,7 +23,7 @@ public class JobSchedulerServer {
   private AtomicBoolean isShuttingDown = new AtomicBoolean(false);
   private AtomicBoolean isStartingUp = new AtomicBoolean(false);
   private CountDownLatch shutdownLatch = new CountDownLatch(1);
-  private ZookeeperClient zookeeperClient;
+  private SchedulerZooKeeperClient zookeeperClient;
   private JobSchedulerController controller;
   private ServerConfig config;
 
@@ -99,11 +100,9 @@ public class JobSchedulerServer {
   }
 
   private void initZkClient() throws KeeperException, InterruptedException, IOException {
-    // TODO: init zk client first.
     log.info("Connecting to zookeeper on {}",  "");
-    zookeeperClient = new ZookeeperClient(config.getZkConnectionString(), config.getZkTimeOutMs());
-    zookeeperClient.tryCreateNode(CONTROLLER_PARENT, null, CreateMode.PERSISTENT);
-    zookeeperClient.tryCreateNode(SERVER_PARENT, null, CreateMode.PERSISTENT);
+    zookeeperClient = new SchedulerZooKeeperClient(config.getZkConnectionString(),
+            config.getZkSessionTimeOutMs(), config.getZkConnectionTimeOutMs(), null);
 
   }
 

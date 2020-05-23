@@ -6,7 +6,8 @@ import lombok.NonNull;
 
 @Data
 public class ServerConfig {
-  @NonNull private String serverId;
+  @NonNull private int serverId;
   @NonNull private String zkConnectionString;
-  @NonNull private int ZkTimeOutMs;
+  @NonNull private int zkSessionTimeOutMs;
+  @NonNull private int zkConnectionTimeOutMs;
 }

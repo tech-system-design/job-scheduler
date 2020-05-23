@@ -12,7 +12,7 @@ public class JobScheduler {
 
   private static ServerConfig getConfigFromProps() {
     // TODO: read from props
-    return new ServerConfig(String.valueOf(1), "localhost:2181", 18000);
+    return new ServerConfig(1, "localhost:2181", 18000, 18000);
   }
 
   public static void main(String[] args) {
