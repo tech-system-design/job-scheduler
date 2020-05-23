@@ -16,6 +16,7 @@ import org.apache.zookeeper.client.ZKClientConfig;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Optional;
 
 import static job.scheduler.core.controller.JobSchedulerController.INITIAL_CONTROLLER_EPOCH;
 import static job.scheduler.core.controller.JobSchedulerController.INITIAL_CONTROLLER_EPOCH_ZK_VERSION;
@@ -39,6 +40,7 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
         return fallback;
       default:
         //TODO: let the server fail. Might need better handling of such cases.
+        log.error("Got error while getting controller id result code {}", response.resultCode);
         throw KeeperException.create(response.resultCode, response.path);
     }
   }
@@ -53,13 +55,15 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
   public Pair<Integer, Integer> registerControllerAndIncrementControllerEpoch(int serverId) throws ZKClientException, KeeperException, InterruptedException {
     // get controller epoch
     log.info("Registering controller and increasing controller epoch.");
-    Pair<Integer, Integer> epoch = getControllerEpoch();
-    if (epoch == null) {
-      // may be create epoch.
+    Optional<Pair<Integer, Integer>> epoch = getControllerEpoch();
+    if (!epoch.isPresent()) {
+      // may be create epoch.;
       epoch = maybeCreateEpoch();
     }
-    int newControllerEpoch = epoch.first + 1;
-    int expectedControllerEpochZkVersion = epoch.second;
+    log.info(epoch.get().first + " " + epoch.get().second);
+    log.info("Epoch: {}, EpochVersion: {}", epoch.get().first, epoch.get().second);
+    int newControllerEpoch = epoch.get().first + 1;
+    int expectedControllerEpochZkVersion = epoch.get().second;
 
 
     Op createController = Op.create(ZkData.ControllerZNode.path(), ZkData.ControllerZNode.encode(serverId),
@@ -75,8 +79,8 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
       case NODEEXISTS:
         return checkControllerAndEpoch(serverId, newControllerEpoch);
     }
-    throw new ZKClientException("Controller moved to another server." +
-            " Aborting controller startup procedure", CONTROLLER_MOVED);
+    log.info("Controller moved to another server. Aborting controller startup procedure", CONTROLLER_MOVED);
+    throw new ZKClientException("Controller moved to another server. Aborting controller startup procedure", CONTROLLER_MOVED);
   }
 
   private Pair<Integer, Integer> checkControllerAndEpoch(int serverId, int newControllerEpoch) throws KeeperException, InterruptedException {
@@ -86,8 +90,8 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
               " Aborting controller startup.", CONTROLLER_MOVED);
     }
     if (serverId == curControllerId) {
-      Pair<Integer, Integer> epoch = getControllerEpoch();
-      if (epoch == null) {
+      Optional<Pair<Integer, Integer>> epoch = getControllerEpoch();
+      if (!epoch.isPresent()) {
         throw new IllegalStateException(
                 ZkData.ControllerEpochZNode.path() + " existed before but goes away while trying to read it");
       }
@@ -95,8 +99,8 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
       // is associated with the current broker during controller election because we already knew that the zk
       // transaction succeeds based on the controller znode verification. Other rounds of controller
       // election will result in larger epoch number written in zk.
-      if (epoch.first == newControllerEpoch) {
-        return new Pair<>(newControllerEpoch, epoch.second);
+      if (epoch.get().first == newControllerEpoch) {
+        return new Pair<>(newControllerEpoch, epoch.get().second);
       }
     }
     throw new ZKClientException("Controller moved to another server." +
@@ -104,7 +108,7 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
   }
 
 
-  private Pair<Integer, Integer> getControllerEpoch() throws KeeperException, InterruptedException {
+  private Optional<Pair<Integer, Integer>> getControllerEpoch() throws KeeperException, InterruptedException {
     log.info("Getting controller epoch.");
     String path = ZkData.ControllerEpochZNode.path();
     ZkGetDataResponse response = getData(path);
@@ -112,16 +116,16 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
     switch (response.resultCode) {
       case OK:
         // return epoch and zk version
-        return new Pair<>(ZkData.ControllerEpochZNode.decode(response.data), response.stat.getVersion());
+        return Optional.of(new Pair<>(ZkData.ControllerEpochZNode.decode(response.data), response.stat.getVersion()));
       case NONODE:
-        return null;
+        return Optional.empty();
       default:
         //TODO: let the server fail. Might need better handling of such cases.
         throw KeeperException.create(response.resultCode, response.path);
     }
   }
 
-  private Pair<Integer, Integer> maybeCreateEpoch() throws InterruptedException, KeeperException, IllegalStateException {
+  private Optional<Pair<Integer, Integer>> maybeCreateEpoch() throws InterruptedException, KeeperException, IllegalStateException {
     String path = ZkData.ControllerEpochZNode.path();
     log.info("Trying to create {}", path );
     ZkCreateNodeResponse response = create(path, ZkData.ControllerEpochZNode.encode(INITIAL_CONTROLLER_EPOCH),
@@ -130,13 +134,13 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
     switch (response.resultCode) {
       case OK:
         // return epoch and zk version
-        return new Pair<>(INITIAL_CONTROLLER_EPOCH, INITIAL_CONTROLLER_EPOCH_ZK_VERSION);
+        return Optional.of(new Pair<>(INITIAL_CONTROLLER_EPOCH, INITIAL_CONTROLLER_EPOCH_ZK_VERSION));
       case NODEEXISTS:
-        Pair<Integer, Integer> controllerEpoch = getControllerEpoch();
-        if (controllerEpoch == null) {
+        Optional<Pair<Integer, Integer>> controllerEpoch = getControllerEpoch();
+        if (!controllerEpoch.isPresent()) {
           throw new IllegalStateException(path + " Epoch existed before, goes away while reading");
         }
-        return controllerEpoch;
+        return Optional.of(controllerEpoch.get());
       default:
         //TODO: let the server fail. Might need better handling of such cases.
         throw KeeperException.create(response.resultCode);

@@ -1,9 +1,10 @@
 package job.scheduler.core.zk.response;
 
+import lombok.ToString;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.Stat;
 
-
+@ToString
 public class ZkGetDataResponse extends ZkResponse {
   public byte[] data;
   public Stat stat;

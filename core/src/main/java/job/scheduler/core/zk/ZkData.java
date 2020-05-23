@@ -7,6 +7,8 @@ import org.apache.zookeeper.data.ACL;
 import java.util.Arrays;
 import java.util.List;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
  * This file contains objects for encoding/decoding data stored in ZK (znodes)
  */
@@ -16,11 +18,11 @@ public class ZkData {
       return "/controller";
     }
     public static int decode(byte[] data) {
-      return Integer.parseInt(String.valueOf(data));
+      return Integer.parseInt(new String(data, UTF_8));
     }
 
     public static byte[] encode(int serverId) {
-      return String.valueOf(serverId).getBytes();
+      return String.valueOf(serverId).getBytes(UTF_8);
     }
   }
 
@@ -30,11 +32,11 @@ public class ZkData {
     }
 
     public static int decode(byte[] data) {
-      return Integer.parseInt(String.valueOf(data));
+      return Integer.parseInt(new String(data, UTF_8));
     }
 
     public static byte[] encode(int epoch) {
-      return String.valueOf(epoch).getBytes();
+      return String.valueOf(epoch).getBytes(UTF_8);
     }
   }
 
