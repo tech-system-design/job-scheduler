@@ -42,7 +42,7 @@ public class JobScheduler {
   }
 
   private static void printMessageAndDie() {
-    String message = "USAGE: java [options] %s server.properties".format(JobScheduler.class.getSimpleName());
+    String message = String.format("USAGE: java [options] %s server.properties", JobScheduler.class.getSimpleName());
     System.out.println(message);
     System.exit(1);
   }
