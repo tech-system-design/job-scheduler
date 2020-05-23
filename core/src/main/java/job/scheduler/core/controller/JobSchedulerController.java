@@ -142,10 +142,8 @@ public class JobSchedulerController {
   private void processControllerChange() {
     try {
       maybeResign();
-    } catch (KeeperException e) {
-      e.printStackTrace();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
+    } catch (KeeperException | InterruptedException ex) {
+      log.error("Failed to re-assign controller", ex);
     }
   }
 
@@ -153,10 +151,8 @@ public class JobSchedulerController {
     try {
       maybeResign();
       elect();
-    } catch (KeeperException e) {
-      e.printStackTrace();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
+    } catch (KeeperException | InterruptedException ex) {
+      log.error("Failed to re-elect controller", ex);
     }
 
   }
