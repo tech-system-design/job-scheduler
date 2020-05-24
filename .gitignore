@@ -3,3 +3,4 @@ DAL/target/*
 .idea/*
 service/target/*
 JobRegistration/target/*
+target/*
