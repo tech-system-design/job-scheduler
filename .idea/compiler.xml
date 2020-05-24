@@ -7,12 +7,14 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="JobRegistration" />
+        <module name="models" />
         <module name="service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="job-scheduler" target="1.5" />
       <module name="JobRegistration" target="1.5" />
+      <module name="models" target="1.5" />
       <module name="Registration" target="1.5" />
       <module name="service" target="1.5" />
     </bytecodeTargetLevel>
