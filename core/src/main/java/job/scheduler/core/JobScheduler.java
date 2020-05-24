@@ -51,6 +51,8 @@ public class JobScheduler {
     try {
       ServerConfig config = getConfigFromProps(args);
       JobSchedulerServer server = new JobSchedulerServer(config);
+
+      Runtime.getRuntime().addShutdownHook(new Thread(() -> server.shutdown()));
       server.startup();
       server.awaitShutdown();
     } catch (Throwable ex) {
