@@ -1,0 +1,13 @@
+---
+server:
+  applicationConnectors:
+    - type: http
+      port: 8080
+  adminConnectors:
+    - type: http
+      port: 8081
+
+registeredClients:
+  clients: ["client1", "Client1"]
+
+hotJobInterval: 600000
