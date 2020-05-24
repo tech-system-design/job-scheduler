@@ -9,8 +9,10 @@
     <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
     <modules>
-        <module>JobRegistration</module>
-        <module>service</module>
+      <module>DAL</module>
+      <module>core</module>
+      <module>JobRegistration</module>
+      <module>service</module>
     </modules>
     <properties>
         <dropwizard.version>2.0.0</dropwizard.version>
