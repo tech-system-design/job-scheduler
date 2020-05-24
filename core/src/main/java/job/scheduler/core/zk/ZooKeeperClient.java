@@ -4,7 +4,10 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import job.scheduler.core.utils.TaskScheduler;
 import job.scheduler.core.zk.exception.ZKClientErrorCode;
 import job.scheduler.core.zk.exception.ZKClientException;
-import job.scheduler.core.zk.response.*;
+import job.scheduler.core.zk.response.ZkCreateNodeResponse;
+import job.scheduler.core.zk.response.ZkExistsResponse;
+import job.scheduler.core.zk.response.ZkGetDataResponse;
+import job.scheduler.core.zk.response.ZkMultiResponse;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
@@ -58,59 +61,59 @@ public class ZooKeeperClient {
   }
 
   public ZkGetDataResponse getData(@NonNull String path) throws InterruptedException {
-    final ZkGetDataResponse[] response = {null};
-    boolean watch = zkNodeChangeHandlers.contains(path);
-    final CountDownLatch latch = new CountDownLatch(1);
-    zooKeeper.getData(path, watch, (rc, path1, ctx, data, stat) -> {
-      KeeperException.Code code = KeeperException.Code.get(rc);
-      response[0] = new ZkGetDataResponse(code, path1, ctx, data, stat);
-      latch.countDown();
-    }, null);
-    latch.await();
-    return response[0];
+    boolean watch = zkNodeChangeHandlers.containsKey(path);
+    log.debug("Watching {} path {} while getting data.", watch, path);
+    Stat stat = new Stat();
+    try {
+      byte[] data = zooKeeper.getData(path, watch, stat);
+      return new ZkGetDataResponse(KeeperException.Code.OK, path, data, stat);
+    } catch (KeeperException ex) {
+      log.warn("Error while getting data at path: " + path, ex);
+      return new ZkGetDataResponse(ex.code(), path, null, stat);
+    }
   }
 
   public ZkCreateNodeResponse create(@NonNull String path, byte[] data, List<ACL> acl,
                                      CreateMode createMode) throws InterruptedException {
-    final ZkCreateNodeResponse[] response = {null};
-    final CountDownLatch latch = new CountDownLatch(1);
-    zooKeeper.create(path, data, acl, createMode, (rc, path1, ctx, name, stat) -> {
-      KeeperException.Code code = KeeperException.Code.get(rc);
-      response[0] = new ZkCreateNodeResponse(code, path1, ctx, data, stat, name);
-      latch.countDown();
-
-    }, null);
-    latch.await();
-    return response[0];
+    Stat stat = new Stat();
+    try {
+      String name = zooKeeper.create(path, data, acl, createMode, stat);
+      return new ZkCreateNodeResponse(KeeperException.Code.OK, path, data, stat, name);
+    } catch (KeeperException ex) {
+      log.error("Error while creating path: " + path, ex);
+      return new ZkCreateNodeResponse(ex.code(), path, data, stat, null);
+    }
   }
 
   public ZkMultiResponse multi(@NonNull List<Op> ops) throws InterruptedException {
-    final CountDownLatch latch = new CountDownLatch(1);
-    final ZkMultiResponse[] response = {null};
-    zooKeeper.multi(ops, (rc, path, ctx, opResults) -> {
-      KeeperException.Code code = KeeperException.Code.get(rc);
-      response[0] = new ZkMultiResponse(code, path, ctx, opResults);
-      latch.countDown();
-    }, null);
-    latch.await();
-    return response[0];
+    try {
+      List<OpResult> opResults = zooKeeper.multi(ops);
+      return new ZkMultiResponse(KeeperException.Code.OK, null, opResults);
+    } catch (KeeperException ex) {
+      log.warn("Error while processing multi request ", ex);
+      return new ZkMultiResponse(ex.code(), null, null);
+    }
   }
 
   public ZkExistsResponse exits(@NonNull String path) throws InterruptedException {
     final CountDownLatch latch = new CountDownLatch(1);
-    boolean watch = zkNodeChangeHandlers.contains(path);
-    final ZkExistsResponse[] response = {null};
-    zooKeeper.exists(path, watch, (rc, path1, ctx, stat) -> {
-      KeeperException.Code code = KeeperException.Code.get(rc);
-      response[0] = new ZkExistsResponse(code, path, ctx, stat);
-      latch.countDown();
-    }, null);
-    latch.await();
-    return response[0];
+    boolean watch = zkNodeChangeHandlers.containsKey(path);
+    log.debug("Watching {} path {} while checking exists.", watch, path);
+    try {
+      Stat stat = zooKeeper.exists(path, watch);
+      return new ZkExistsResponse(KeeperException.Code.OK, path, stat);
+    } catch (KeeperException ex) {
+      log.warn("Error while checking exists path: " + path, ex);
+      return new ZkExistsResponse(ex.code(), path, null);
+    }
   }
 
-  public void delete(@NonNull String path, int version) throws KeeperException, InterruptedException {
-    zooKeeper.delete(path, version);
+  public void delete(@NonNull String path, int version) throws InterruptedException {
+    try {
+      zooKeeper.delete(path, version);
+    } catch (KeeperException ex) {
+      log.warn("Error while deleting path: " + path, ex);
+    }
   }
 
   /*
@@ -147,7 +150,7 @@ public class ZooKeeperClient {
 
   }
 
-  private void waitUntilConnected(long time, TimeUnit unit) throws InterruptedException {
+  private void waitUntilConnected(long time, TimeUnit unit) {
     log.info("Waiting for zookeeper to connect.");
     long nanos = unit.toNanos(time);
     ZooKeeper.States state = zooKeeper.getState();
@@ -157,7 +160,12 @@ public class ZooKeeperClient {
         if (nanos <= 0) {
           throw new ZKClientException("Timeout while wating for connection in state" + state.toString(), ZKClientErrorCode.CONNECTION_TIMEOUT);
         }
-        nanos = isConnectedOrExpiredCondition.awaitNanos(nanos);
+        try {
+          nanos = isConnectedOrExpiredCondition.awaitNanos(nanos);
+        } catch (InterruptedException ex) {
+          log.warn("Awaking as zk client received event.");
+        }
+
         state = zooKeeper.getState();
       }
       if (state == ZooKeeper.States.AUTH_FAILED) {
@@ -182,15 +190,13 @@ public class ZooKeeperClient {
       initializationLock.writeLock().unlock();
     }
     log.info("Shutdown zookeeper finished.");
-
-
   }
 
   private class ZooKeeperClientWatcher implements Watcher {
 
     @Override
     public void process(WatchedEvent event) {
-      log.debug("Received event: ", event);
+      log.debug("Received event: {} and state: {}", event.getType().toString(), event.getState());
       if (event.getType() == Event.EventType.None) {
 
         Event.KeeperState state = event.getState();
@@ -218,6 +224,7 @@ public class ZooKeeperClient {
       log.info("Nothing to inform ", event);
       return;
     }
+    log.info("Notified for {} path {}", event.getType().toString(), event.getPath());
 
     switch (event.getType()) {
       case NodeDataChanged: {
@@ -258,8 +265,8 @@ public class ZooKeeperClient {
           try {
             zooKeeper = new ZooKeeper(zkConnectionString, zkSessionTimeOutMs, new ZooKeeperClientWatcher(), zkClientConfig);
             connected = true;
-          } catch (Exception ex){
-              log.info("Error when recreating ZooKeeper, retrying after a short sleep", ex);
+          } catch (Exception ex) {
+            log.info("Error when recreating ZooKeeper, retrying after a short sleep", ex);
             Uninterruptibles.sleepUninterruptibly(1000, TimeUnit.MILLISECONDS);
           }
         }
