@@ -1,5 +1,5 @@
 core/target/*
 DAL/target/*
-.idea/libraries/*
+.idea/*
 service/target/*
 JobRegistration/target/*
