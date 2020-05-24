@@ -1,4 +1,4 @@
-package services;
+package registration;
 
 public interface IDataStore {
     void registerJob();

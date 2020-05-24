@@ -9,3 +9,5 @@ server:
 
 registeredClients:
   clients: ["client1", "Client1"]
+
+hotJobInterval: 600000

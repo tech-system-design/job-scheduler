@@ -1,8 +1,9 @@
-package services;
+package registration;
 
 import com.google.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import services.requests.JobRegistrationRequest;
+import registration.AbstractDataStoreService;
+import registration.requests.JobRegistrationRequest;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;

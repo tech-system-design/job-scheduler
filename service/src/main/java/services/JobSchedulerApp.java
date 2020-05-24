@@ -6,6 +6,7 @@ import io.dropwizard.Application;
 import io.dropwizard.jersey.setup.JerseyEnvironment;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
+import registration.JobRegistrationResource;
 
 public class JobSchedulerApp extends Application<JobSchedulerConfig> {
 

@@ -1,8 +1,10 @@
-package services;
+package registration;
+
+import registration.ValidationService.ValidationService;
 
 public class AbstractDataStoreService implements IDataStore{
     public void registerJob(){
-
+        ValidationService validationService = new ValidationService();
     }
 
     public void schedulerJob() {

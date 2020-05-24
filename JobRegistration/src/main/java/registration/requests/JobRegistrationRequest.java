@@ -1,9 +1,8 @@
-package services.requests;
+package registration.requests;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import services.RegisteredClient;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -13,5 +12,19 @@ public class JobRegistrationRequest {
     private Long startDate;
     private Long endDate;
     private Long interval;
+    private String callBackUrl;
     //private RegisteredClient client;
+
+
+    public String getCallBackUrl() {
+        return callBackUrl;
+    }
+
+    public Long getStartDate() {
+        return startDate;
+    }
+
+    public Long getEndDate() {
+        return endDate;
+    }
 }
