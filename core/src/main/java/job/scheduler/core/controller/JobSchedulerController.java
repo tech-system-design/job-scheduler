@@ -19,7 +19,7 @@ import org.apache.zookeeper.KeeperException;
 public class JobSchedulerController {
   public static final int INITIAL_CONTROLLER_EPOCH = 0;
   public static final int INITIAL_CONTROLLER_EPOCH_ZK_VERSION = 0;
-  private static final int INVALID_CONTROLLER_ID = -1;
+  public static final int INVALID_CONTROLLER_ID = -1;
   private int activeControllerId = INVALID_CONTROLLER_ID;
 
   private ControllerContext controllerContext;
@@ -54,6 +54,7 @@ public class JobSchedulerController {
   }
 
   private void elect() throws KeeperException, InterruptedException {
+    log.info("Electing {} as controller.", config.getServerId());
     // get current controller id from zookeeper
     activeControllerId = zkClient.getActiveControllerIdOrElse(INVALID_CONTROLLER_ID);
 
@@ -84,15 +85,17 @@ public class JobSchedulerController {
   }
 
   private void maybeResign() throws KeeperException, InterruptedException {
+    log.info("Checking if controller can be reassigned.");
     boolean wasActiveBeforeChange = isActive();
-    zkClient.registerZNodeChangeHandlerAndCheckExistence(controllerChangeHandler);
+    //zkClient.registerZNodeChangeHandlerAndCheckExistence(controllerChangeHandler);
     activeControllerId = zkClient.getActiveControllerIdOrElse(INVALID_CONTROLLER_ID);
+    log.info("Current server {}, wasactive: {}, isActive: {}", config.getServerId(), wasActiveBeforeChange, isActive());
     if (wasActiveBeforeChange && !isActive()) {
       onControllerResignation();
     }
   }
 
-  private void triggerControllerMove() throws KeeperException, InterruptedException {
+  private void triggerControllerMove() throws InterruptedException, KeeperException {
     activeControllerId = zkClient.getActiveControllerIdOrElse(INVALID_CONTROLLER_ID);
     if (!isActive()) {
      log.warn("Controller has already moved when trying to trigger controller movement");
@@ -141,6 +144,7 @@ public class JobSchedulerController {
 
   private void processControllerChange() {
     try {
+      log.info("Processing controller change.");
       maybeResign();
     } catch (KeeperException | InterruptedException ex) {
       log.error("Failed to re-assign controller", ex);
@@ -149,6 +153,7 @@ public class JobSchedulerController {
 
   private void processReelect(){
     try {
+      log.info("Process reelect");
       maybeResign();
       elect();
     } catch (KeeperException | InterruptedException ex) {

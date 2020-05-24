@@ -3,7 +3,6 @@ package job.scheduler.core.zk;
 import job.scheduler.core.utils.Pair;
 import job.scheduler.core.zk.exception.ZKClientException;
 import job.scheduler.core.zk.response.ZkCreateNodeResponse;
-import job.scheduler.core.zk.response.ZkExistsResponse;
 import job.scheduler.core.zk.response.ZkGetDataResponse;
 import job.scheduler.core.zk.response.ZkMultiResponse;
 import lombok.NonNull;
@@ -11,15 +10,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Op;
-import org.apache.zookeeper.OpResult;
 import org.apache.zookeeper.client.ZKClientConfig;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static job.scheduler.core.controller.JobSchedulerController.INITIAL_CONTROLLER_EPOCH;
-import static job.scheduler.core.controller.JobSchedulerController.INITIAL_CONTROLLER_EPOCH_ZK_VERSION;
+import static job.scheduler.core.controller.JobSchedulerController.*;
 import static job.scheduler.core.zk.exception.ZKClientErrorCode.CONTROLLER_MOVED;
 
 @Slf4j
@@ -32,6 +29,7 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
   public int getActiveControllerIdOrElse(int fallback) throws InterruptedException, KeeperException {
     String path = ZkData.ControllerZNode.path();
     ZkGetDataResponse response = getData(path);
+    log.info("Active controller call {}", response.resultCode);
     switch (response.resultCode) {
       case OK:
         // return controller id
@@ -60,7 +58,6 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
       // may be create epoch.;
       epoch = maybeCreateEpoch();
     }
-    log.info(epoch.get().first + " " + epoch.get().second);
     log.info("Epoch: {}, EpochVersion: {}", epoch.get().first, epoch.get().second);
     int newControllerEpoch = epoch.get().first + 1;
     int expectedControllerEpochZkVersion = epoch.get().second;
@@ -73,8 +70,6 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
     ZkMultiResponse response = multi(Arrays.asList(createController, setEpoch));
     switch (response.resultCode) {
       case OK:
-        OpResult.SetDataResult epochResponse = (OpResult.SetDataResult) response.opResultList.get(1);
-        return new Pair<>(newControllerEpoch, epochResponse.getStat().getVersion());
       case BADVERSION:
       case NODEEXISTS:
         return checkControllerAndEpoch(serverId, newControllerEpoch);
@@ -84,8 +79,9 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
   }
 
   private Pair<Integer, Integer> checkControllerAndEpoch(int serverId, int newControllerEpoch) throws KeeperException, InterruptedException {
-    int curControllerId = getActiveControllerIdOrElse(-1);
-    if (curControllerId == -1) {
+    log.info("Checking controller or epoch");
+    int curControllerId = getActiveControllerIdOrElse(INVALID_CONTROLLER_ID);
+    if (curControllerId == INVALID_CONTROLLER_ID) {
       throw new ZKClientException("Controller node went away hile checking controller election succeeds." +
               " Aborting controller startup.", CONTROLLER_MOVED);
     }
@@ -130,7 +126,7 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
     log.info("Trying to create {}", path );
     ZkCreateNodeResponse response = create(path, ZkData.ControllerEpochZNode.encode(INITIAL_CONTROLLER_EPOCH),
             ZkData.defaultAcls(), CreateMode.PERSISTENT);
-    log.info("Response {} while creating {}", response.resultCode, path);
+    log.debug("Response {} while creating {}", response.resultCode, path);
     switch (response.resultCode) {
       case OK:
         // return epoch and zk version
@@ -144,20 +140,6 @@ public class SchedulerZooKeeperClient extends ZooKeeperClient {
       default:
         //TODO: let the server fail. Might need better handling of such cases.
         throw KeeperException.create(response.resultCode);
-    }
-  }
-
-  public boolean registerZNodeChangeHandlerAndCheckExistence(@NonNull IZkNodeChangeHandler zkNodeChangeHandler)
-          throws KeeperException, InterruptedException {
-    registerZkNodeHandler(zkNodeChangeHandler);
-    ZkExistsResponse existsResponse = exits(zkNodeChangeHandler.path());
-    switch (existsResponse.resultCode) {
-      case OK:
-        return true;
-      case NONODE:
-        return false;
-      default:
-        throw KeeperException.create(existsResponse.resultCode);
     }
   }
 }
