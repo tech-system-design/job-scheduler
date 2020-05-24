@@ -8,10 +8,14 @@
         <outputRelativeToContentRoot value="true" />
         <module name="JobRegistration" />
         <module name="service" />
+        <module name="DAL" />
+        <module name="job-scheduler-core" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="DAL" target="1.8" />
       <module name="job-scheduler" target="1.5" />
+      <module name="job-scheduler-core" target="1.8" />
       <module name="JobRegistration" target="1.5" />
       <module name="Registration" target="1.5" />
       <module name="service" target="1.5" />

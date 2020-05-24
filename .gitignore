@@ -2,3 +2,4 @@ core/target/*
 DAL/target/*
 .idea/libraries/*
 service/target/*
+JobRegistration/target/*
