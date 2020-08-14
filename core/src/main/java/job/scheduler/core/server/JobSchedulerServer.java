@@ -17,8 +17,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Slf4j
 public class JobSchedulerServer {
-  private static final String CONTROLLER_PARENT = "/controller";
-  private static final String SERVER_PARENT = "/servers";
   private AtomicBoolean startupComplete = new AtomicBoolean(false);
   private AtomicBoolean isShuttingDown = new AtomicBoolean(false);
   private AtomicBoolean isStartingUp = new AtomicBoolean(false);
@@ -32,7 +30,7 @@ public class JobSchedulerServer {
     this.config = config;
   }
 
-  public void startup() throws KeeperException, InterruptedException {
+  public void startup() {
 
     try {
       log.info("Starting up server.");
@@ -85,7 +83,7 @@ public class JobSchedulerServer {
         log.info("Server shut down completed");
       }
     } catch (Throwable ex) {
-      log.error("Fatal error during KafkaServer shutdown.", ex);
+      log.error("Fatal error during server shutdown.", ex);
       isShuttingDown.set(false);
       Runtime.getRuntime().halt(1);
     }

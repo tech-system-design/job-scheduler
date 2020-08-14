@@ -10,8 +10,8 @@ import java.util.List;
 public class ZkMultiResponse extends ZkResponse {
   public List<OpResult> opResultList;
 
-  public ZkMultiResponse(KeeperException.Code resultCode, String path, Object ctx, List<OpResult> opResultList) {
-    super(resultCode, path, ctx);
+  public ZkMultiResponse(KeeperException.Code resultCode, String path, List<OpResult> opResultList) {
+    super(resultCode, path);
     this.opResultList = opResultList;
   }
 }

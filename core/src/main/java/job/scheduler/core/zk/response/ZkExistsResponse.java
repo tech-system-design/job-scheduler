@@ -7,8 +7,8 @@ import org.apache.zookeeper.data.Stat;
 @ToString
 public class ZkExistsResponse extends ZkResponse {
   public Stat stat;
-  public ZkExistsResponse(KeeperException.Code resultCode, String path, Object ctx, Stat stat) {
-    super(resultCode, path, ctx);
+  public ZkExistsResponse(KeeperException.Code resultCode, String path, Stat stat) {
+    super(resultCode, path);
     this.stat = stat;
   }
 }

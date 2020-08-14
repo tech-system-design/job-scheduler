@@ -53,7 +53,7 @@ public class ZkData {
   }
 
   public static class ServerInfoZNode {
-    public static String path(@NonNull String id) {
+    public static String path(int id) {
       return ServerIdsZNode.path() + "/" + id;
     }
   }

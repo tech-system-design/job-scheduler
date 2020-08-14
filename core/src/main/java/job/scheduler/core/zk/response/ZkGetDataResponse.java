@@ -9,8 +9,8 @@ public class ZkGetDataResponse extends ZkResponse {
   public byte[] data;
   public Stat stat;
 
-  public ZkGetDataResponse(KeeperException.Code resultCode, String path, Object ctx, byte[] data, Stat stat) {
-    super(resultCode, path, ctx);
+  public ZkGetDataResponse(KeeperException.Code resultCode, String path, byte[] data, Stat stat) {
+    super(resultCode, path);
     this.data = data;
     this.stat = stat;
   }
