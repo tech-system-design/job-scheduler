@@ -14,7 +14,6 @@
         <module>models</module>
         <module>DAL</module>
         <module>core</module>
-        <module>JobRegistration</module>
         <module>service</module>
     </modules>
     <properties>
