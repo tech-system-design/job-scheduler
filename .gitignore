@@ -4,3 +4,4 @@ DAL/target/*
 service/target/*
 JobRegistration/target/*
 target/*
+models/target/
