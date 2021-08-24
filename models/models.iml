@@ -7,7 +7,6 @@
       <sourceFolder url="file://$MODULE_DIR$/src/main/java" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/resources" type="java-resource" />
       <sourceFolder url="file://$MODULE_DIR$/src/test/java" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/Common" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
@@ -81,7 +80,6 @@
     <orderEntry type="library" name="Maven: net.sourceforge.argparse4j:argparse4j:0.7.0" level="project" />
     <orderEntry type="library" name="Maven: org.eclipse.jetty.toolchain.setuid:jetty-setuid-java:1.0.3" level="project" />
     <orderEntry type="library" name="Maven: org.projectlombok:lombok:1.16.8" level="project" />
-    <orderEntry type="module" module-name="models" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: org.glassfish.jersey.core:jersey-client:2.21" level="project" />
     <orderEntry type="library" name="Maven: javax.ws.rs:javax.ws.rs-api:2.0.1" level="project" />
     <orderEntry type="library" name="Maven: org.glassfish.jersey.core:jersey-common:2.21" level="project" />

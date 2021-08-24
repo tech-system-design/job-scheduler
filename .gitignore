@@ -1,0 +1,7 @@
+core/target/*
+DAL/target/*
+.idea/*
+service/target/*
+JobRegistration/target/*
+target/*
+models/target/
